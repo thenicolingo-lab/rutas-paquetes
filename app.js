@@ -10,7 +10,24 @@ window.onload = async function() {
         console.error("Error al acceder a la cámara: ", err);
     }
 }
+const SECRET_PASSWORD = "TU_CLAVE_SECRETA"; // Pon aquí la clave que ella quiera
 
+function checkAccess() {
+    const input = document.getElementById('secret-key').value;
+    if (input === SECRET_PASSWORD) {
+        document.getElementById('login-section').style.display = 'none';
+        document.getElementById('main-app').style.display = 'block';
+        loadSavedData(); // Función que crearemos para recuperar los datos
+    } else {
+        alert("Clave incorrecta.");
+    }
+}
+
+function loadSavedData() {
+    // Recuperar direcciones solo si la clave es correcta
+    document.getElementById('pickup-address').value = localStorage.getItem('savedPickup') || "";
+    document.getElementById('final-address').value = localStorage.getItem('savedFinal') || "";
+}
 // Opción A: Entrada Manual
 function addManualAddress() {
     const input = document.getElementById('manual-address');
