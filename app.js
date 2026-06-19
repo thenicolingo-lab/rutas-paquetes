@@ -97,14 +97,23 @@ async function calculateRoute() {
     const pickup = document.getElementById('pickup-address').value;
     const final = document.getElementById('final-address').value;
 
-    if(!pickup || addresses.length === 0 || !final) { alert("Faltan datos."); return; }
+    if(!pickup || addresses.length === 0 || !final) { 
+        alert("Faltan datos. Verifica que tengas:\n- Punto de partida\n- Al menos una dirección\n- Destino final"); 
+        return; 
+    }
 
     try {
         const btn = document.querySelector('.btn-green');
-        btn.innerText = "Calculando..."; btn.disabled = true;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span style="display:inline-block; animation: spin 1s linear infinite;">⟳</span> Calculando...';
+        btn.disabled = true;
 
         const coords = [];
-        for (const text of [pickup, ...addresses, final]) coords.push(await geocodeAddress(text));
+        const allAddresses = [pickup, ...addresses, final];
+        
+        for (let i = 0; i < allAddresses.length; i++) {
+            coords.push(await geocodeAddress(allAddresses[i]));
+        }
 
         const body = {
             jobs: addresses.map((addr, i) => ({ id: i + 1, location: coords[i + 1] })),
@@ -116,20 +125,37 @@ async function calculateRoute() {
             headers: { 'Authorization': API_KEY, 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
+        
+        if (!res.ok) throw new Error(`API Error: ${res.status}`);
+        
         const optData = await res.json();
 
-        const sorted = optData.routes[0].steps.map(s => s.type === 'job' ? addresses[s.id - 1] : (s.type === 'start' ? pickup : final));
-        
-        // Guardar coordenadas en el orden optimizado
-        const sortedCoords = optData.routes[0].steps.map(s => {
-            if (s.type === 'start') return coords[0];
-            if (s.type === 'end') return coords[coords.length - 1];
-            return coords[s.id];
+        // Extraer paradas y coordenadas en el orden optimizado directamente de la respuesta
+        const sortedStops = [];
+        const sortedCoords = [];
+
+        optData.routes[0].steps.forEach(s => {
+            if (s.type === 'start') {
+                sortedStops.push(pickup);
+                sortedCoords.push(s.location); // [lng, lat]
+            } else if (s.type === 'end') {
+                sortedStops.push(final);
+                sortedCoords.push(s.location); // [lng, lat]
+            } else if (s.type === 'job') {
+                sortedStops.push(addresses[s.id - 1]);
+                sortedCoords.push(s.location); // [lng, lat]
+            }
         });
         
-        displayRoute(sorted, sortedCoords);
-        btn.innerText = "Optimizar Ruta"; btn.disabled = false;
-    } catch(e) { alert("Error: " + e.message); location.reload(); }
+        displayRoute(sortedStops, sortedCoords);
+        
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    } catch(e) { 
+        console.error('Error:', e);
+        alert("Error: " + e.message); 
+        location.reload(); 
+    }
 }
 
 function displayRoute(stops, coords) {
@@ -137,13 +163,15 @@ function displayRoute(stops, coords) {
     container.innerHTML = ""; 
     document.getElementById('route-results').style.display = "block";
     
-    // Crear lista de paradas
-    for (let i = 0; i < stops.length - 1; i++) {
-        container.innerHTML += `<div class="stop-card"><span><strong>${i+1}.</strong> ${stops[i+1]}</span><button onclick="navigateTo('${stops[i+1]}')">Ir</button></div>`;
+    // Crear lista de paradas (omitimos la primera que es el punto de partida)
+    for (let i = 1; i < stops.length; i++) {
+        container.innerHTML += `<div class="stop-card"><span><strong>${i}.</strong> ${stops[i]}</span><button onclick="navigateTo('${stops[i]}')">Ir</button></div>`;
     }
     
-    // Mostrar mapa
-    displayMap(coords, stops);
+    // Mostrar mapa con un pequeño retraso para que el contenedor renderice bien
+    setTimeout(() => {
+        displayMap(coords, stops);
+    }, 150);
 }
 
 function displayMap(coords, stops) {
@@ -152,7 +180,7 @@ function displayMap(coords, stops) {
         routeMap = L.map('route-map').setView([4.6097, -74.0817], 13);
         
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors',
+            attribution: '© OpenStreetMap',
             maxZoom: 19
         }).addTo(routeMap);
     }
@@ -166,8 +194,8 @@ function displayMap(coords, stops) {
     
     // Agregar marcadores
     coords.forEach((coord, index) => {
-        const lat = coord[1];
         const lng = coord[0];
+        const lat = coord[1];
         
         let markerClass = 'custom-marker';
         let label = index + 1;
@@ -187,8 +215,10 @@ function displayMap(coords, stops) {
             iconAnchor: [16, 16]
         });
         
+        const markerType = index === 0 ? ' Inicio' : index === coords.length - 1 ? '🏁 Destino' : ' Parada ' + index;
+        
         const marker = L.marker([lat, lng], { icon: icon })
-            .bindPopup(`<strong>Parada ${index + 1}</strong><br>${stops[index]}`);
+            .bindPopup(`<strong>${markerType}</strong><br>${stops[index]}`);
         
         markersLayer.addLayer(marker);
     });
@@ -196,19 +226,18 @@ function displayMap(coords, stops) {
     markersLayer.addTo(routeMap);
     
     // Crear línea de ruta
-    const routeCoords = coords.map(c => [c[1], c[0]]);
+    const routeCoords = coords.map(c => [c[1], c[0]]); // Leaflet usa [lat, lng]
     routeLayer = L.polyline(routeCoords, {
         color: '#6366f1',
         weight: 5,
         opacity: 0.8,
-        smoothFactor: 1,
-        dashArray: '10, 10'
+        smoothFactor: 1
     }).addTo(routeMap);
     
     // Ajustar vista del mapa
-    routeMap.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+    routeMap.fitBounds(routeLayer.getBounds(), { padding: [50, 50], maxZoom: 16 });
     
-    // Forzar redimensionamiento del mapa
+    // CRÍTICO: Forzar a Leaflet a recalcular el tamaño del contenedor
     setTimeout(() => {
         routeMap.invalidateSize();
     }, 100);
