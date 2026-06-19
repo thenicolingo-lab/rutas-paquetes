@@ -3,228 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MayitaEntregas · Optimizador de Rutas</title>
+    <title>Optimizador de Rutas</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
-        :root {
-            --bg-gradient-1: #667eea; --bg-gradient-2: #764ba2; --bg-gradient-3: #f093fb;
-            --surface: rgba(255, 255, 255, 0.75); --surface-solid: #ffffff;
-            --border: rgba(255, 255, 255, 0.5);
-            --text-primary: #0f172a; --text-secondary: #64748b; --text-muted: #94a3b8;
-            --primary: #6366f1; --primary-hover: #4f46e5; --primary-light: rgba(99, 102, 241, 0.1);
-            --success: #10b981; --success-hover: #059669;
-            --danger: #ef4444; --danger-hover: #dc2626;
-            --info: #06b6d4;
-            --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
-            --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.06);
-            --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.08);
-            --shadow-xl: 0 24px 48px rgba(15, 23, 42, 0.12);
-            --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --radius-xl: 20px;
-            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        html { scroll-behavior: smooth; }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            min-height: 100vh; padding: 20px 16px 40px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-            background-size: 400% 400%; animation: gradientShift 20s ease infinite;
-            color: var(--text-primary); -webkit-font-smoothing: antialiased;
-            position: relative; overflow-x: hidden;
-        }
-
-        body::before {
-            content: ''; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background-image: radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.15) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
-            pointer-events: none; z-index: 0;
-        }
-
-        @keyframes gradientShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes scanLine { 0% { top: 10%; } 50% { top: 80%; } 100% { top: 10%; } }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .app-header { text-align: center; padding: 24px 16px 32px; color: white; position: relative; z-index: 1; animation: fadeInUp 0.6s ease; }
-        .app-logo { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: var(--radius-lg); margin-bottom: 16px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1); overflow: hidden; }
-        .app-logo img { width: 100%; height: 100%; object-fit: cover; }
-        .app-title { font-size: 32px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 4px; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.1); }
-        .app-subtitle { font-size: 15px; font-weight: 400; opacity: 0.9; max-width: 300px; margin: 0 auto; line-height: 1.4; }
-
-        section { background: var(--surface); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 20px; margin-bottom: 16px; border-radius: var(--radius-xl); border: 1px solid var(--border); box-shadow: var(--shadow-lg); position: relative; z-index: 1; animation: fadeInUp 0.6s ease backwards; transition: var(--transition); }
-        section:hover { box-shadow: var(--shadow-xl); transform: translateY(-2px); }
-        #gate-section { animation-delay: 0.1s; }
-        #main-app > section:nth-child(1) { animation-delay: 0.15s; }
-        #main-app > section:nth-child(2) { animation-delay: 0.2s; }
-        #main-app > section:nth-child(3) { animation-delay: 0.25s; }
-        #main-app > section:nth-child(4) { animation-delay: 0.3s; }
-        #route-results { animation-delay: 0.1s; }
-
-        .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-        .section-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: var(--primary-light); border-radius: var(--radius-sm); color: var(--primary); flex-shrink: 0; }
-        .section-icon svg { width: 20px; height: 20px; }
-        .section-title { font-size: 15px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.01em; }
-        .section-subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
-
-        label { display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
-        input, select, textarea { width: 100%; padding: 12px 14px; margin: 4px 0 12px; font-size: 15px; font-family: inherit; background: var(--surface-solid); border: 1.5px solid #e2e8f0; border-radius: var(--radius-md); color: var(--text-primary); transition: var(--transition); outline: none; }
-        input::placeholder, textarea::placeholder { color: var(--text-muted); }
-        input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-light); background: white; }
-        select { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 40px; cursor: pointer; }
-        textarea { resize: vertical; min-height: 80px; }
-
-        button { width: 100%; padding: 13px 18px; margin: 6px 0; font-size: 15px; font-weight: 600; font-family: inherit; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%); color: white; border: none; border-radius: var(--radius-md); cursor: pointer; transition: var(--transition); display: inline-flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35); position: relative; overflow: hidden; }
-        button::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent); transition: left 0.5s; }
-        button:hover::before { left: 100%; }
-        button:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45); }
-        button:active { transform: translateY(0); }
-        button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-        .btn-green { background: linear-gradient(135deg, var(--success) 0%, var(--success-hover) 100%); box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35); }
-        .btn-green:hover { box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45); }
-        .btn-red { width: auto; padding: 8px 14px; margin: 0; font-size: 13px; background: linear-gradient(135deg, var(--danger) 0%, var(--danger-hover) 100%); box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm); }
-        .btn-info { background: linear-gradient(135deg, var(--info) 0%, #0891b2 100%); box-shadow: 0 4px 14px rgba(6, 182, 212, 0.35); }
-        .btn-info:hover { box-shadow: 0 6px 20px rgba(6, 182, 212, 0.45); }
-
-        .stop-card { background: var(--surface-solid); padding: 12px 14px; margin: 8px 0; border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 1px solid #e2e8f0; transition: var(--transition); animation: fadeInUp 0.3s ease; }
-        .stop-card:hover { border-color: var(--primary); box-shadow: var(--shadow-sm); }
-        .stop-card input { margin: 0; flex: 1; border: none; background: transparent; padding: 4px 0; font-size: 14px; }
-        .stop-card input:focus { box-shadow: none; }
-        .stop-card button { width: auto; margin: 0; padding: 6px 12px; font-size: 12px; }
-        .stop-card span { flex: 1; font-size: 14px; color: var(--text-primary); line-height: 1.4; }
-        .stop-card strong { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: var(--primary); color: white; border-radius: 50%; font-size: 12px; font-weight: 700; margin-right: 10px; flex-shrink: 0; }
-
-        #video-container { position: relative; width: 100%; border-radius: var(--radius-lg); overflow: hidden; background: #000; margin: 10px 0; box-shadow: var(--shadow-md); }
-        video { width: 100%; display: block; aspect-ratio: 4/3; object-fit: cover; }
-        .target-box { position: absolute; top: 30%; left: 10%; width: 80%; height: 40%; border: 2px solid var(--primary); border-radius: var(--radius-sm); pointer-events: none; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35); }
-        .target-box::before, .target-box::after { content: ''; position: absolute; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--primary), transparent); animation: scanLine 3s ease-in-out infinite; box-shadow: 0 0 12px var(--primary); }
-        .target-box::after { animation-delay: 1.5s; }
-
-        #route-map { width: 100%; height: 350px; border-radius: var(--radius-lg); margin: 16px 0; box-shadow: var(--shadow-md); border: 2px solid var(--border); overflow: hidden; z-index: 1; background: #f1f5f9; }
-        #route-map .leaflet-container { height: 100%; width: 100%; border-radius: var(--radius-lg); }
-        .leaflet-popup-content-wrapper { border-radius: var(--radius-md); box-shadow: var(--shadow-lg); }
-        .leaflet-popup-content { margin: 12px 16px; font-family: 'Inter', sans-serif; font-size: 14px; line-height: 1.5; }
-        .custom-marker { background: var(--primary); color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; border: 3px solid white; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
-        .custom-marker.start { background: var(--success); }
-        .custom-marker.end { background: var(--danger); }
-
-        .divider { display: flex; align-items: center; gap: 12px; margin: 18px 0 14px; color: var(--text-muted); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
-        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, #cbd5e1, transparent); }
-        .inline-group { display: flex; gap: 8px; margin-top: 10px; }
-        .inline-group input { margin: 0; flex: 1; }
-        .inline-group button { width: 40%; margin: 0; }
-
-        #route-results { background: linear-gradient(135deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.7)); }
-        #route-results h3 { font-size: 18px; font-weight: 700; margin-bottom: 14px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
-        #route-results h3::before { content: '✓'; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: var(--success); color: white; border-radius: 50%; font-size: 14px; font-weight: 700; }
-
-        #gate-section { max-width: 400px; margin: 40px auto 20px; text-align: center; }
-        #gate-section h3 { font-size: 22px; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); }
-        #gate-section p { color: var(--text-secondary); font-size: 14px; margin-bottom: 16px; }
-        .reset-btn { background: rgba(255, 255, 255, 0.4); color: rgba(255, 255, 255, 0.9); font-size: 12px; padding: 10px; margin-top: 20px; box-shadow: none; border: 1px solid rgba(255, 255, 255, 0.3); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-        .reset-btn:hover { background: rgba(255, 255, 255, 0.6); color: white; box-shadow: none; }
-
-        @media (min-width: 768px) { body { padding: 40px 24px 60px; } #main-app { max-width: 640px; margin: 0 auto; } .app-title { font-size: 36px; } #route-map { height: 450px; } }
-        ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 4px; } ::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.5); }
+        body { font-family: sans-serif; padding: 15px; margin: 0; background: #f9f9f9; }
+        section { background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        button { width: 100%; padding: 12px; margin: 5px 0; font-size: 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-green { background: #28a745; }
+        .btn-red { background: #dc3545; width: auto; padding: 10px; }
+        input, select, textarea { width: 100%; padding: 10px; margin: 5px 0; box-sizing: border-box; font-size: 16px; }
+        .stop-card { background: #eee; padding: 10px; margin: 5px 0; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        #video-container { position: relative; width: 100%; border-radius: 8px; overflow: hidden; background: #000; }
+        video { width: 100%; display: block; }
+        .target-box { position: absolute; top: 30%; left: 10%; width: 80%; height: 40%; border: 2px solid #007bff; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); pointer-events: none; }
     </style>
 </head>
 <body>
 
-    <header class="app-header">
-        <div class="app-logo">
-            <img src="Gemini_Generated_Image_5qtszi5qtszi5qts.png" alt="Logo">
-        </div>
-        <h1 class="app-title">MayitaEntregas</h1>
-        <p class="app-subtitle">Entrega paquetes de una manera eficiente</p>
-    </header>
-
     <section id="gate-section">
         <h3 id="gate-title">Configuración Inicial</h3>
-        <p>Crea tu código de acceso de 4 dígitos</p>
-        <input type="password" id="gate-input" placeholder="• • • •" maxlength="4" inputmode="numeric" style="text-align:center; font-size:24px; letter-spacing:12px;">
-        <button id="gate-btn" class="btn-green" onclick="handleGate()">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            Crear Código
-        </button>
+        <p>Crea tu código de 4 dígitos:</p>
+        <input type="password" id="gate-input" placeholder="Ingresa 4 dígitos" maxlength="4" inputmode="numeric">
+        <button id="gate-btn" class="btn-green" onclick="handleGate()">Crear Código</button>
     </section>
 
     <div id="main-app" style="display:none;">
         <section>
-            <div class="section-header">
-                <div class="section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a1 1 0 0 0-.8-.4H5.24a2 2 0 0 0-1.8 1.1l-.8 1.63A6 6 0 0 0 2 12.42V16h2"/><circle cx="6.5" cy="16.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/></svg></div>
-                <div><div class="section-title">Vehículo</div><div class="section-subtitle">Selecciona tu medio de transporte</div></div>
-            </div>
+            <label>Tipo de vehículo:</label>
             <select id="vehicle">
-                <option value="driving-car">🚗 Carro</option>
-                <option value="driving-car">🏍️ Moto</option>
-                <option value="cycling-regular">🚴 Bicicleta</option>
+                <option value="driving-car">Carro</option>
+                <option value="driving-car">Moto</option>
+                <option value="cycling-regular">Bicicleta</option>
             </select>
         </section>
 
         <section>
-            <div class="section-header">
-                <div class="section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></div>
-                <div><div class="section-title">Punto de Partida</div><div class="section-subtitle">Dónde recoges los paquetes</div></div>
-            </div>
+            <label>Punto de Partida (Recogida):</label>
             <select id="pickup-address"></select>
             <input type="text" id="new-pickup" placeholder="Nueva dirección para guardar...">
-            <button onclick="saveNewLocation('pickup')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Guardar dirección</button>
+            <button onclick="saveNewLocation('pickup')">Guardar dirección</button>
         </section>
 
         <section>
-            <div class="section-header">
-                <div class="section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
-                <div><div class="section-title">Direcciones de Entrega</div><div class="section-subtitle">Agrega, pega o escanea paquetes</div></div>
-            </div>
-            <label>Pegar lista completa</label>
-            <textarea id="bulk-addresses" rows="3" placeholder="Dir1; Dir2; Dir3; Dir4"></textarea>
-            <button class="btn-green" onclick="addBulkAddresses()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>Agregar toda la lista</button>
-            <div class="inline-group">
+            <label style="font-weight: bold;">Agregar dirección del paquete:</label>
+            <textarea id="bulk-addresses" rows="3" placeholder="Pega lista aquí (ej: Dir1;Dir2;Dir3)"></textarea>
+            <button class="btn-green" onclick="addBulkAddresses()">Agregar toda la lista</button>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
                 <input type="text" id="manual-address" placeholder="O escribir manualmente">
-                <button onclick="addManualAddress()">Agregar</button>
+                <button onclick="addManualAddress()" style="width: 40%;">Agregar</button>
             </div>
-            <div class="divider">O escanear etiqueta</div>
+            <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
+            <label>O Escanear Etiqueta:</label>
             <div id="video-container">
                 <video id="camera-stream" autoplay playsinline></video>
                 <div class="target-box"></div>
             </div>
-            <button class="btn-info" onclick="scanLiveFrame()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Capturar Dirección</button>
+            <button onclick="scanLiveFrame()" style="background: #17a2b8;">Capturar Dirección</button>
             <div id="scanned-list" style="margin-top: 15px;"></div>
         </section>
 
         <section>
-            <div class="section-header">
-                <div class="section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
-                <div><div class="section-title">Destino Final</div><div class="section-subtitle">Dónde terminas tu ruta</div></div>
-            </div>
+            <label>Destino Final:</label>
             <select id="final-address"></select>
             <input type="text" id="new-final" placeholder="Nueva dirección para guardar...">
-            <button onclick="saveNewLocation('final')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Guardar dirección</button>
+            <button onclick="saveNewLocation('final')">Guardar dirección</button>
         </section>
 
-        <button class="btn-green" onclick="calculateRoute()" style="padding:16px; font-size:16px;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
-            Optimizar Ruta
-        </button>
-
+        <button class="btn-green" onclick="calculateRoute()">Optimizar Ruta</button>
         <section id="route-results" style="display:none;">
             <h3>Ruta Optimizada</h3>
-            <div id="route-map"></div>
             <div id="optimized-stops"></div>
         </section>
-
-        <button class="reset-btn" onclick="localStorage.clear(); location.reload();">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-            Resetear App
-        </button>
+        
+        <button onclick="localStorage.clear(); location.reload();" style="background:#666; font-size:12px; margin-top:20px;">Resetear App</button>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
