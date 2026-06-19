@@ -1,8 +1,10 @@
 window.onload = async function() {
+    // Detectar si ya existe código
     const savedCode = localStorage.getItem('userCode');
-    const title = document.getElementById('gate-title');
-    const btn = document.getElementById('gate-btn');
-    if (savedCode) { title.innerText = "Ingresa tu código"; btn.innerText = "Desbloquear"; }
+    if (savedCode) {
+        document.getElementById('gate-title').innerText = "Ingresa tu código";
+        document.getElementById('gate-btn').innerText = "Desbloquear";
+    }
 
     const video = document.getElementById('camera-stream');
     try {
@@ -48,8 +50,8 @@ function updateDropdown(type) {
 
 function addBulkAddresses() {
     const textarea = document.getElementById('bulk-addresses');
-    const addresses = textarea.value.split(';');
-    addresses.forEach(addr => { if (addr.trim() !== "") addStopToList(addr.trim()); });
+    if(textarea.value.trim() === "") return;
+    textarea.value.split(';').forEach(addr => { if (addr.trim() !== "") addStopToList(addr.trim()); });
     textarea.value = "";
 }
 
@@ -115,7 +117,7 @@ async function calculateRoute() {
         const sorted = optData.routes[0].steps.map(s => s.type === 'job' ? addresses[s.id - 1] : (s.type === 'start' ? pickup : final));
         displayRoute(sorted);
         btn.innerText = "Optimizar Ruta"; btn.disabled = false;
-    } catch(e) { alert(e.message); location.reload(); }
+    } catch(e) { alert("Error: " + e.message); location.reload(); }
 }
 
 function displayRoute(stops) {
@@ -127,5 +129,7 @@ function displayRoute(stops) {
 }
 
 function navigateTo(address) {
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address + ', Mosquera, Colombia')}&travelmode=driving`, '_blank');
+    // CORREGIDO: Enlace oficial de Google Maps
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address + ', Mosquera, Colombia')}`;
+    window.open(url, '_blank');
 }
