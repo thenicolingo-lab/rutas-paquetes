@@ -2,7 +2,7 @@ window.onload = async function() {
     // Detectar si ya existe código
     const savedCode = localStorage.getItem('userCode');
     if (savedCode) {
-        document.getElementById('gate-title').innerText = "Ingresa tu código";
+        document.getElementById('gate-title').innerText = "🔐 Ingresa tu código";
         document.getElementById('gate-btn').innerText = "Desbloquear";
     }
 
@@ -10,71 +10,138 @@ window.onload = async function() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
         video.srcObject = stream;
-    } catch (err) { console.error("Cámara no disponible"); }
+    } catch (err) { 
+        console.error("Cámara no disponible"); 
+    }
+
+    // Add stagger animation to sections
+    const sections = document.querySelectorAll('section');
+    sections.forEach((section, index) => {
+        section.style.animationDelay = `${index * 0.1}s`;
+    });
 }
 
 function handleGate() {
     const input = document.getElementById('gate-input').value;
     const savedCode = localStorage.getItem('userCode');
     if (!savedCode) {
-        if (input.length === 4) { localStorage.setItem('userCode', input); unlockApp(); }
+        if (input.length === 4) { 
+            localStorage.setItem('userCode', input); 
+            showSuccessMessage('✅ Código creado exitosamente');
+            setTimeout(unlockApp, 800);
+        }
         else alert("El código debe tener 4 dígitos.");
     } else {
-        if (input === savedCode) unlockApp();
+        if (input === savedCode) {
+            showSuccessMessage('✅ Bienvenido de vuelta');
+            setTimeout(unlockApp, 800);
+        }
         else alert("Código incorrecto.");
     }
+}
+
+function showSuccessMessage(message) {
+    const msg = document.createElement('div');
+    msg.className = 'success-message';
+    msg.innerText = message;
+    const gateSection = document.getElementById('gate-section');
+    gateSection.parentNode.insertBefore(msg, gateSection.nextSibling);
+    setTimeout(() => msg.remove(), 2000);
 }
 
 function unlockApp() {
     document.getElementById('gate-section').style.display = 'none';
     document.getElementById('main-app').style.display = 'block';
+    
+    // Animate main app sections
+    const sections = document.querySelectorAll('#main-app section');
+    sections.forEach((section, index) => {
+        section.style.animationDelay = `${index * 0.1}s`;
+    });
+    
     updateDropdown('pickup');
     updateDropdown('final');
 }
 
 function saveNewLocation(type) {
     const input = document.getElementById(type === 'pickup' ? 'new-pickup' : 'new-final');
-    if (!input.value) return;
+    if (!input.value) {
+        alert('Por favor ingresa una dirección');
+        return;
+    }
     let list = JSON.parse(localStorage.getItem(type + 'List') || "[]");
     list.push(input.value);
     localStorage.setItem(type + 'List', JSON.stringify(list));
     updateDropdown(type);
     input.value = "";
+    showSuccessMessage('✅ Dirección guardada');
 }
 
 function updateDropdown(type) {
     const select = document.getElementById(type === 'pickup' ? 'pickup-address' : 'final-address');
     const list = JSON.parse(localStorage.getItem(type + 'List') || "[]");
-    select.innerHTML = list.map(addr => `<option value="${addr}">${addr}</option>`).join('');
+    if (list.length === 0) {
+        select.innerHTML = '<option value="">Sin direcciones guardadas</option>';
+    } else {
+        select.innerHTML = list.map((addr, i) => `<option value="${addr}">${i + 1}. ${addr}</option>`).join('');
+    }
 }
 
 function addBulkAddresses() {
     const textarea = document.getElementById('bulk-addresses');
-    if(textarea.value.trim() === "") return;
+    if(textarea.value.trim() === "") {
+        alert('Por favor ingresa al menos una dirección');
+        return;
+    }
+    const count = textarea.value.split(';').filter(addr => addr.trim() !== "").length;
     textarea.value.split(';').forEach(addr => { if (addr.trim() !== "") addStopToList(addr.trim()); });
     textarea.value = "";
+    showSuccessMessage(`✅ ${count} dirección(es) agregada(s)`);
 }
 
 function addManualAddress() {
     const input = document.getElementById('manual-address');
-    if (input.value.trim() !== "") { addStopToList(input.value.trim()); input.value = ""; }
+    if (input.value.trim() !== "") { 
+        addStopToList(input.value.trim()); 
+        input.value = "";
+        showSuccessMessage('✅ Dirección agregada');
+    }
 }
 
 function addStopToList(text) {
     const div = document.createElement('div');
     div.className = 'stop-card';
-    div.innerHTML = `<input type="text" value="${text}" class="package-address"><button class="btn-red" onclick="this.parentElement.remove()">X</button>`;
+    div.innerHTML = `
+        <input type="text" value="${text}" class="package-address" readonly>
+        <button class="btn-red" onclick="this.parentElement.remove()">✕ Eliminar</button>
+    `;
     document.getElementById('scanned-list').appendChild(div);
 }
 
 function scanLiveFrame() {
     const video = document.getElementById('camera-stream');
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth; 
+    canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    const btn = event.target;
+    const originalText = btn.innerText;
+    btn.innerText = '⏳ Procesando...';
+    btn.disabled = true;
+    
     Tesseract.recognize(canvas.toDataURL('image/png'), 'spa').then(({ data: { text } }) => {
-        if(text.trim().length > 2) addStopToList(text.trim());
-        else alert("No se detectó texto.");
+        if(text.trim().length > 2) {
+            addStopToList(text.trim());
+            showSuccessMessage('✅ Texto detectado');
+        }
+        else alert("No se detectó texto claro. Intenta de nuevo.");
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }).catch(err => {
+        alert("Error al escanear: " + err.message);
+        btn.innerText = originalText;
+        btn.disabled = false;
     });
 }
 
@@ -93,11 +160,16 @@ async function calculateRoute() {
     const pickup = document.getElementById('pickup-address').value;
     const final = document.getElementById('final-address').value;
 
-    if(!pickup || addresses.length === 0 || !final) { alert("Faltan datos."); return; }
+    if(!pickup || addresses.length === 0 || !final) { 
+        alert("⚠️ Por favor completa todos los campos requeridos"); 
+        return; 
+    }
 
     try {
         const btn = document.querySelector('.btn-green');
-        btn.innerText = "Calculando..."; btn.disabled = true;
+        const originalText = btn.innerText;
+        btn.innerHTML = '<span class="loading"></span> Calculando...';
+        btn.disabled = true;
 
         const coords = [];
         for (const text of [pickup, ...addresses, final]) coords.push(await geocodeAddress(text));
@@ -116,20 +188,36 @@ async function calculateRoute() {
 
         const sorted = optData.routes[0].steps.map(s => s.type === 'job' ? addresses[s.id - 1] : (s.type === 'start' ? pickup : final));
         displayRoute(sorted);
-        btn.innerText = "Optimizar Ruta"; btn.disabled = false;
-    } catch(e) { alert("Error: " + e.message); location.reload(); }
+        btn.innerText = originalText;
+        btn.disabled = false;
+        showSuccessMessage('✅ Ruta optimizada exitosamente');
+        
+        // Scroll to results
+        document.getElementById('route-results').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch(e) { 
+        alert("Error: " + e.message); 
+        location.reload(); 
+    }
 }
 
 function displayRoute(stops) {
     const container = document.getElementById('optimized-stops');
-    container.innerHTML = ""; document.getElementById('route-results').style.display = "block";
+    container.innerHTML = ""; 
+    document.getElementById('route-results').style.display = "block";
+    
     for (let i = 0; i < stops.length - 1; i++) {
-        container.innerHTML += `<div class="stop-card"><span><strong>${i+1}.</strong> ${stops[i+1]}</span><button onclick="navigateTo('${stops[i+1]}')">Ir</button></div>`;
+        const step = document.createElement('div');
+        step.className = 'route-step';
+        step.style.animationDelay = `${i * 0.1}s`;
+        step.innerHTML = `
+            <span><strong>${i+1}.</strong> ${stops[i+1]}</span>
+            <button onclick="navigateTo('${stops[i+1]}')">🗺️ Ir</button>
+        `;
+        container.appendChild(step);
     }
 }
 
 function navigateTo(address) {
-    // CORREGIDO: Enlace oficial de Google Maps
     const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address + ', Mosquera, Colombia')}`;
     window.open(url, '_blank');
 }
