@@ -12,7 +12,7 @@
         button { width: 100%; padding: 12px; margin: 5px 0; font-size: 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
         .btn-green { background: #28a745; }
         .btn-red { background: #dc3545; width: auto; padding: 10px; }
-        input, select { width: 100%; padding: 10px; margin: 5px 0; box-sizing: border-box; font-size: 16px; }
+        input, select, textarea { width: 100%; padding: 10px; margin: 5px 0; box-sizing: border-box; font-size: 16px; }
         .stop-card { background: #eee; padding: 10px; margin: 5px 0; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
         #video-container { position: relative; width: 100%; border-radius: 8px; overflow: hidden; background: #000; }
         video { width: 100%; display: block; }
@@ -36,10 +36,13 @@
     </section>
 
     <section>
-        <label style="font-weight: bold;">Agregar Paquetes:</label>
+        <label style="font-weight: bold;">Agregar dirección del paquete:</label>
         
+        <textarea id="bulk-addresses" rows="3" placeholder="Pega aquí lista (ej: Dir1;Dir2;Dir3)"></textarea>
+        <button class="btn-green" onclick="addBulkAddresses()">Agregar toda la lista</button>
+
         <div style="display: flex; gap: 10px; margin-top: 10px;">
-            <input type="text" id="manual-address" placeholder="Escribir dirección manualmente">
+            <input type="text" id="manual-address" placeholder="O escribir una manualmente">
             <button onclick="addManualAddress()" style="width: 40%;">Agregar</button>
         </div>
 
@@ -48,7 +51,8 @@
         <label>O Escanear Etiqueta:</label>
         <div id="video-container">
             <video id="camera-stream" autoplay playsinline></video>
-            <div class="target-box"></div> </div>
+            <div class="target-box"></div>
+        </div>
         <button onclick="scanLiveFrame()" style="background: #17a2b8;">Capturar Dirección</button>
         
         <div id="scanned-list" style="margin-top: 15px;"></div>
