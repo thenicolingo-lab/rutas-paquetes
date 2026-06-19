@@ -1,8 +1,5 @@
-let routeMap = null;
-let routeLayer = null;
-let markersLayer = null;
-
 window.onload = async function() {
+    // Detectar si ya existe código
     const savedCode = localStorage.getItem('userCode');
     if (savedCode) {
         document.getElementById('gate-title').innerText = "Ingresa tu código";
@@ -17,15 +14,11 @@ window.onload = async function() {
 }
 
 function handleGate() {
-    const input = document.getElementById('gate-input').value.trim();
+    const input = document.getElementById('gate-input').value;
     const savedCode = localStorage.getItem('userCode');
     if (!savedCode) {
-        if (input.length === 4 && /^\d+$/.test(input)) { 
-            localStorage.setItem('userCode', input); 
-            unlockApp(); 
-        } else {
-            alert("El código debe tener exactamente 4 dígitos numéricos.");
-        }
+        if (input.length === 4) { localStorage.setItem('userCode', input); unlockApp(); }
+        else alert("El código debe tener 4 dígitos.");
     } else {
         if (input === savedCode) unlockApp();
         else alert("Código incorrecto.");
@@ -35,17 +28,15 @@ function handleGate() {
 function unlockApp() {
     document.getElementById('gate-section').style.display = 'none';
     document.getElementById('main-app').style.display = 'block';
-    setTimeout(() => {
-        updateDropdown('pickup');
-        updateDropdown('final');
-    }, 100);
+    updateDropdown('pickup');
+    updateDropdown('final');
 }
 
 function saveNewLocation(type) {
     const input = document.getElementById(type === 'pickup' ? 'new-pickup' : 'new-final');
-    if (!input.value.trim()) return;
+    if (!input.value) return;
     let list = JSON.parse(localStorage.getItem(type + 'List') || "[]");
-    list.push(input.value.trim());
+    list.push(input.value);
     localStorage.setItem(type + 'List', JSON.stringify(list));
     updateDropdown(type);
     input.value = "";
@@ -54,11 +45,7 @@ function saveNewLocation(type) {
 function updateDropdown(type) {
     const select = document.getElementById(type === 'pickup' ? 'pickup-address' : 'final-address');
     const list = JSON.parse(localStorage.getItem(type + 'List') || "[]");
-    if (list.length === 0) {
-        select.innerHTML = '<option value="">Sin direcciones guardadas</option>';
-    } else {
-        select.innerHTML = list.map((addr, idx) => `<option value="${addr}">${idx + 1}. ${addr}</option>`).join('');
-    }
+    select.innerHTML = list.map(addr => `<option value="${addr}">${addr}</option>`).join('');
 }
 
 function addBulkAddresses() {
@@ -94,58 +81,26 @@ function scanLiveFrame() {
 const API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjEzZWNmZjAwZWNiYTQ4YjE5MTQ3MGZhZTFhZGMyY2E5IiwiaCI6Im11cm11cjY0In0='; 
 
 async function geocodeAddress(address) {
-    // Búsqueda más específica para Mosquera, Cundinamarca
-    const searchText = `${address}, Mosquera, Cundinamarca, Colombia`;
-    
-    try {
-        const response = await fetch(`https://api.openrouteservice.org/geocode/search?api_key=${API_KEY}&text=${encodeURIComponent(searchText)}&size=1`);
-        const data = await response.json();
-        
-        if (data.features && data.features.length > 0) {
-            const coords = data.features[0].geometry.coordinates;
-            console.log(`✓ Encontrado: ${address} -> [${coords[1].toFixed(4)}, ${coords[0].toFixed(4)}]`);
-            return coords;
-        } else {
-            // Fallback: buscar en Bogotá si no encuentra en Mosquera
-            const fallbackResponse = await fetch(`https://api.openrouteservice.org/geocode/search?api_key=${API_KEY}&text=${encodeURIComponent(address + ', Bogotá, Colombia')}&size=1`);
-            const fallbackData = await fallbackResponse.json();
-            
-            if (fallbackData.features && fallbackData.features.length > 0) {
-                console.log(`✓ Encontrado (fallback): ${address}`);
-                return fallbackData.features[0].geometry.coordinates;
-            }
-            
-            throw new Error(`No se encontró: ${address}`);
-        }
-    } catch (error) {
-        console.error(`✗ Error buscando ${address}:`, error);
-        throw error;
-    }
+    const response = await fetch(`https://api.openrouteservice.org/geocode/search?api_key=${API_KEY}&text=${encodeURIComponent(address + ', Mosquera, Colombia')}`);
+    const data = await response.json();
+    if (data.features && data.features.length > 0) return data.features[0].geometry.coordinates;
+    throw new Error(`No se encontró: ${address}`);
 }
 
 async function calculateRoute() {
     const vehicle = document.getElementById('vehicle').value;
-    const addresses = Array.from(document.querySelectorAll('.package-address')).map(i => i.value.trim());
+    const addresses = Array.from(document.querySelectorAll('.package-address')).map(i => i.value);
     const pickup = document.getElementById('pickup-address').value;
     const final = document.getElementById('final-address').value;
 
-    if(!pickup || addresses.length === 0 || !final) { 
-        alert("Faltan datos. Verifica que tengas:\n- Punto de partida\n- Al menos una dirección\n- Destino final"); 
-        return; 
-    }
+    if(!pickup || addresses.length === 0 || !final) { alert("Faltan datos."); return; }
 
     try {
         const btn = document.querySelector('.btn-green');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<span style="display:inline-block; animation: spin 1s linear infinite;">⟳</span> Calculando...';
-        btn.disabled = true;
+        btn.innerText = "Calculando..."; btn.disabled = true;
 
         const coords = [];
-        const allAddresses = [pickup, ...addresses, final];
-        
-        for (let i = 0; i < allAddresses.length; i++) {
-            coords.push(await geocodeAddress(allAddresses[i]));
-        }
+        for (const text of [pickup, ...addresses, final]) coords.push(await geocodeAddress(text));
 
         const body = {
             jobs: addresses.map((addr, i) => ({ id: i + 1, location: coords[i + 1] })),
@@ -157,104 +112,24 @@ async function calculateRoute() {
             headers: { 'Authorization': API_KEY, 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
-        
-        if (!res.ok) throw new Error(`API Error: ${res.status}`);
         const optData = await res.json();
 
-        const sortedStops = [];
-        const sortedCoords = [];
-
-        optData.routes[0].steps.forEach(s => {
-            if (s.type === 'start') { sortedStops.push(pickup); sortedCoords.push(s.location); }
-            else if (s.type === 'end') { sortedStops.push(final); sortedCoords.push(s.location); }
-            else if (s.type === 'job') { sortedStops.push(addresses[s.id - 1]); sortedCoords.push(s.location); }
-        });
-        
-        displayRoute(sortedStops, sortedCoords);
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-    } catch(e) { 
-        console.error('Error:', e);
-        alert("Error: " + e.message); 
-        location.reload(); 
-    }
+        const sorted = optData.routes[0].steps.map(s => s.type === 'job' ? addresses[s.id - 1] : (s.type === 'start' ? pickup : final));
+        displayRoute(sorted);
+        btn.innerText = "Optimizar Ruta"; btn.disabled = false;
+    } catch(e) { alert("Error: " + e.message); location.reload(); }
 }
 
-function displayRoute(stops, coords) {
+function displayRoute(stops) {
     const container = document.getElementById('optimized-stops');
-    container.innerHTML = ""; 
-    document.getElementById('route-results').style.display = "block";
-    
-    for (let i = 1; i < stops.length; i++) {
-        container.innerHTML += `<div class="stop-card"><span><strong>${i}.</strong> ${stops[i]}</span><button onclick="navigateTo('${stops[i]}')">Ir</button></div>`;
+    container.innerHTML = ""; document.getElementById('route-results').style.display = "block";
+    for (let i = 0; i < stops.length - 1; i++) {
+        container.innerHTML += `<div class="stop-card"><span><strong>${i+1}.</strong> ${stops[i+1]}</span><button onclick="navigateTo('${stops[i+1]}')">Ir</button></div>`;
     }
-    
-    setTimeout(() => { displayMap(coords, stops); }, 150);
-}
-
-function displayMap(coords, stops) {
-    // Inicializar mapa centrado en Mosquera, Cundinamarca
-    if (!routeMap) {
-        routeMap = L.map('route-map').setView([4.6269, -74.2317], 14);
-        
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap',
-            maxZoom: 19
-        }).addTo(routeMap);
-    }
-    
-    if (routeLayer) routeMap.removeLayer(routeLayer);
-    if (markersLayer) routeMap.removeLayer(markersLayer);
-    
-    markersLayer = L.layerGroup();
-    
-    coords.forEach((coord, index) => {
-        const lng = coord[0];
-        const lat = coord[1];
-        
-        let markerClass = 'custom-marker';
-        let label = index + 1;
-        
-        if (index === 0) {
-            markerClass += ' start';
-            label = '🏠';
-        } else if (index === coords.length - 1) {
-            markerClass += ' end';
-            label = '🏁';
-        }
-        
-        const icon = L.divIcon({
-            className: '',
-            html: `<div class="${markerClass}">${label}</div>`,
-            iconSize: [32, 32],
-            iconAnchor: [16, 16]
-        });
-        
-        const markerType = index === 0 ? '🏠 Inicio' : index === coords.length - 1 ? '🏁 Destino' : '📦 Parada ' + index;
-        const marker = L.marker([lat, lng], { icon: icon })
-            .bindPopup(`<strong>${markerType}</strong><br>${stops[index]}`);
-        
-        markersLayer.addLayer(marker);
-    });
-    
-    markersLayer.addTo(routeMap);
-    
-    const routeCoords = coords.map(c => [c[1], c[0]]);
-    routeLayer = L.polyline(routeCoords, {
-        color: '#6366f1',
-        weight: 5,
-        opacity: 0.8,
-        smoothFactor: 1
-    }).addTo(routeMap);
-    
-    routeMap.fitBounds(routeLayer.getBounds(), { padding: [50, 50], maxZoom: 16 });
-    
-    setTimeout(() => {
-        routeMap.invalidateSize();
-    }, 100);
 }
 
 function navigateTo(address) {
+    // CORREGIDO: Enlace oficial de Google Maps
     const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address + ', Mosquera, Colombia')}`;
     window.open(url, '_blank');
 }
