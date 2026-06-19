@@ -20,62 +20,63 @@
     </style>
 </head>
 <body>
-<section id="login-section">
-    <label>Llave de acceso (Solo mamá):</label>
-    <input type="password" id="secret-key" placeholder="Ingresa la clave">
-    <button onclick="checkAccess()">Desbloquear</button>
-</section>
 
-<div id="main-app" style="display:none;">
+    <section id="gate-section">
+        <h3 id="gate-title">Configuración Inicial</h3>
+        <input type="password" id="gate-input" placeholder="Ingresa 4 dígitos" maxlength="4" inputmode="numeric">
+        <button id="gate-btn" class="btn-green" onclick="handleGate()">Crear Código</button>
+    </section>
+
+    <div id="main-app" style="display:none;">
+        <section>
+            <label>Tipo de vehículo:</label>
+            <select id="vehicle">
+                <option value="driving-car">Carro</option>
+                <option value="driving-car">Moto</option>
+                <option value="cycling-regular">Bicicleta</option>
+            </select>
+        </section>
+
+        <section>
+            <label>Punto de Partida (Recogida):</label>
+            <select id="pickup-address"></select>
+            <input type="text" id="new-pickup" placeholder="Nueva dirección para guardar...">
+            <button onclick="saveNewLocation('pickup')">Guardar dirección</button>
+        </section>
+
+        <section>
+            <label style="font-weight: bold;">Agregar dirección del paquete:</label>
+            <textarea id="bulk-addresses" rows="3" placeholder="Pega lista aquí (ej: Dir1;Dir2;Dir3)"></textarea>
+            <button class="btn-green" onclick="addBulkAddresses()">Agregar toda la lista</button>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <input type="text" id="manual-address" placeholder="O escribir manualmente">
+                <button onclick="addManualAddress()" style="width: 40%;">Agregar</button>
+            </div>
+            <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
+            <label>O Escanear Etiqueta:</label>
+            <div id="video-container">
+                <video id="camera-stream" autoplay playsinline></video>
+                <div class="target-box"></div>
+            </div>
+            <button onclick="scanLiveFrame()" style="background: #17a2b8;">Capturar Dirección</button>
+            <div id="scanned-list" style="margin-top: 15px;"></div>
+        </section>
+
+        <section>
+            <label>Destino Final:</label>
+            <select id="final-address"></select>
+            <input type="text" id="new-final" placeholder="Nueva dirección para guardar...">
+            <button onclick="saveNewLocation('final')">Guardar dirección</button>
+        </section>
+
+        <button class="btn-green" onclick="calculateRoute()">Optimizar Ruta</button>
+        <section id="route-results" style="display:none;">
+            <h3>Ruta Optimizada</h3>
+            <div id="optimized-stops"></div>
+        </section>
+        
+        <button onclick="localStorage.clear(); location.reload();" style="background:#666; font-size:12px; margin-top:20px;">Resetear App</button>
     </div>
-    <section>
-        <label>Tipo de vehículo:</label>
-        <select id="vehicle">
-            <option value="driving-car">Carro</option>
-            <option value="driving-car">Moto</option>
-            <option value="cycling-regular">Bicicleta</option>
-        </select>
-    </section>
-
-    <section>
-        <label>Punto de Partida (Recogida):</label>
-        <input type="text" id="pickup-address" placeholder="Dirección o punto guardado">
-    </section>
-
-    <section>
-        <label style="font-weight: bold;">Agregar dirección del paquete:</label>
-        
-        <textarea id="bulk-addresses" rows="3" placeholder="Pega aquí lista (ej: Dir1;Dir2;Dir3)"></textarea>
-        <button class="btn-green" onclick="addBulkAddresses()">Agregar toda la lista</button>
-
-        <div style="display: flex; gap: 10px; margin-top: 10px;">
-            <input type="text" id="manual-address" placeholder="O escribir una manualmente">
-            <button onclick="addManualAddress()" style="width: 40%;">Agregar</button>
-        </div>
-
-        <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
-
-        <label>O Escanear Etiqueta:</label>
-        <div id="video-container">
-            <video id="camera-stream" autoplay playsinline></video>
-            <div class="target-box"></div>
-        </div>
-        <button onclick="scanLiveFrame()" style="background: #17a2b8;">Capturar Dirección</button>
-        
-        <div id="scanned-list" style="margin-top: 15px;"></div>
-    </section>
-
-    <section>
-        <label>Destino Final (Fin del día):</label>
-        <input type="text" id="final-address" placeholder="Ej: Parque Zapatoca o Casa">
-    </section>
-
-    <button class="btn-green" onclick="calculateRoute()">Optimizar Ruta</button>
-
-    <section id="route-results" style="display:none;">
-        <h3>Ruta Optimizada</h3>
-        <div id="optimized-stops"></div>
-    </section>
 
     <script src="app.js"></script>
 </body>
