@@ -1,3 +1,7 @@
+let routeMap = null;
+let routeLayer = null;
+let markersLayer = null;
+
 window.onload = async function() {
     // Detectar si ya existe código
     const savedCode = localStorage.getItem('userCode');
@@ -115,21 +119,102 @@ async function calculateRoute() {
         const optData = await res.json();
 
         const sorted = optData.routes[0].steps.map(s => s.type === 'job' ? addresses[s.id - 1] : (s.type === 'start' ? pickup : final));
-        displayRoute(sorted);
+        
+        // Guardar coordenadas en el orden optimizado
+        const sortedCoords = optData.routes[0].steps.map(s => {
+            if (s.type === 'start') return coords[0];
+            if (s.type === 'end') return coords[coords.length - 1];
+            return coords[s.id];
+        });
+        
+        displayRoute(sorted, sortedCoords);
         btn.innerText = "Optimizar Ruta"; btn.disabled = false;
     } catch(e) { alert("Error: " + e.message); location.reload(); }
 }
 
-function displayRoute(stops) {
+function displayRoute(stops, coords) {
     const container = document.getElementById('optimized-stops');
-    container.innerHTML = ""; document.getElementById('route-results').style.display = "block";
+    container.innerHTML = ""; 
+    document.getElementById('route-results').style.display = "block";
+    
+    // Crear lista de paradas
     for (let i = 0; i < stops.length - 1; i++) {
         container.innerHTML += `<div class="stop-card"><span><strong>${i+1}.</strong> ${stops[i+1]}</span><button onclick="navigateTo('${stops[i+1]}')">Ir</button></div>`;
     }
+    
+    // Mostrar mapa
+    displayMap(coords, stops);
+}
+
+function displayMap(coords, stops) {
+    // Inicializar mapa si no existe
+    if (!routeMap) {
+        routeMap = L.map('route-map').setView([4.6097, -74.0817], 13);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(routeMap);
+    }
+    
+    // Limpiar capas anteriores
+    if (routeLayer) routeMap.removeLayer(routeLayer);
+    if (markersLayer) routeMap.removeLayer(markersLayer);
+    
+    // Crear capa de marcadores
+    markersLayer = L.layerGroup();
+    
+    // Agregar marcadores
+    coords.forEach((coord, index) => {
+        const lat = coord[1];
+        const lng = coord[0];
+        
+        let markerClass = 'custom-marker';
+        let label = index + 1;
+        
+        if (index === 0) {
+            markerClass += ' start';
+            label = '🏠';
+        } else if (index === coords.length - 1) {
+            markerClass += ' end';
+            label = '🏁';
+        }
+        
+        const icon = L.divIcon({
+            className: '',
+            html: `<div class="${markerClass}">${label}</div>`,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+        });
+        
+        const marker = L.marker([lat, lng], { icon: icon })
+            .bindPopup(`<strong>Parada ${index + 1}</strong><br>${stops[index]}`);
+        
+        markersLayer.addLayer(marker);
+    });
+    
+    markersLayer.addTo(routeMap);
+    
+    // Crear línea de ruta
+    const routeCoords = coords.map(c => [c[1], c[0]]);
+    routeLayer = L.polyline(routeCoords, {
+        color: '#6366f1',
+        weight: 5,
+        opacity: 0.8,
+        smoothFactor: 1,
+        dashArray: '10, 10'
+    }).addTo(routeMap);
+    
+    // Ajustar vista del mapa
+    routeMap.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+    
+    // Forzar redimensionamiento del mapa
+    setTimeout(() => {
+        routeMap.invalidateSize();
+    }, 100);
 }
 
 function navigateTo(address) {
-    // CORREGIDO: Enlace oficial de Google Maps
     const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address + ', Mosquera, Colombia')}`;
     window.open(url, '_blank');
 }
