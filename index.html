@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimizador de Rutas</title>
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 15px; margin: 0; background: #f9f9f9; }
+        section { background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        button { width: 100%; padding: 12px; margin: 5px 0; font-size: 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-green { background: #28a745; }
+        .btn-red { background: #dc3545; width: auto; padding: 10px; }
+        input, select { width: 100%; padding: 10px; margin: 5px 0; box-sizing: border-box; font-size: 16px; }
+        .stop-card { background: #eee; padding: 10px; margin: 5px 0; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        #video-container { position: relative; width: 100%; border-radius: 8px; overflow: hidden; background: #000; }
+        video { width: 100%; display: block; }
+        .target-box { position: absolute; top: 30%; left: 10%; width: 80%; height: 40%; border: 2px solid #007bff; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); pointer-events: none; }
+    </style>
+</head>
+<body>
+
+    <section>
+        <label>Tipo de vehículo:</label>
+        <select id="vehicle">
+            <option value="driving-car">Carro</option>
+            <option value="driving-car">Moto</option>
+            <option value="cycling-regular">Bicicleta</option>
+        </select>
+    </section>
+
+    <section>
+        <label>Punto de Partida (Recogida):</label>
+        <input type="text" id="pickup-address" placeholder="Dirección o punto guardado">
+    </section>
+
+    <section>
+        <label style="font-weight: bold;">Agregar Paquetes:</label>
+        
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <input type="text" id="manual-address" placeholder="Escribir dirección manualmente">
+            <button onclick="addManualAddress()" style="width: 40%;">Agregar</button>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
+
+        <label>O Escanear Etiqueta:</label>
+        <div id="video-container">
+            <video id="camera-stream" autoplay playsinline></video>
+            <div class="target-box"></div> </div>
+        <button onclick="scanLiveFrame()" style="background: #17a2b8;">Capturar Dirección</button>
+        
+        <div id="scanned-list" style="margin-top: 15px;"></div>
+    </section>
+
+    <section>
+        <label>Destino Final (Fin del día):</label>
+        <input type="text" id="final-address" placeholder="Ej: Parque Zapatoca o Casa">
+    </section>
+
+    <button class="btn-green" onclick="calculateRoute()">Optimizar Ruta</button>
+
+    <section id="route-results" style="display:none;">
+        <h3>Ruta Optimizada</h3>
+        <div id="optimized-stops"></div>
+    </section>
+
+    <script src="app.js"></script>
+</body>
+</html>
