@@ -3,7 +3,6 @@ let routeLayer = null;
 let markersLayer = null;
 
 window.onload = async function() {
-    // Detectar si ya existe código
     const savedCode = localStorage.getItem('userCode');
     if (savedCode) {
         document.getElementById('gate-title').innerText = "Ingresa tu código";
@@ -18,11 +17,15 @@ window.onload = async function() {
 }
 
 function handleGate() {
-    const input = document.getElementById('gate-input').value;
+    const input = document.getElementById('gate-input').value.trim();
     const savedCode = localStorage.getItem('userCode');
     if (!savedCode) {
-        if (input.length === 4) { localStorage.setItem('userCode', input); unlockApp(); }
-        else alert("El código debe tener 4 dígitos.");
+        if (input.length === 4 && /^\d+$/.test(input)) { 
+            localStorage.setItem('userCode', input); 
+            unlockApp(); 
+        } else {
+            alert("El código debe tener exactamente 4 dígitos numéricos.");
+        }
     } else {
         if (input === savedCode) unlockApp();
         else alert("Código incorrecto.");
@@ -32,15 +35,17 @@ function handleGate() {
 function unlockApp() {
     document.getElementById('gate-section').style.display = 'none';
     document.getElementById('main-app').style.display = 'block';
-    updateDropdown('pickup');
-    updateDropdown('final');
+    setTimeout(() => {
+        updateDropdown('pickup');
+        updateDropdown('final');
+    }, 100);
 }
 
 function saveNewLocation(type) {
     const input = document.getElementById(type === 'pickup' ? 'new-pickup' : 'new-final');
-    if (!input.value) return;
+    if (!input.value.trim()) return;
     let list = JSON.parse(localStorage.getItem(type + 'List') || "[]");
-    list.push(input.value);
+    list.push(input.value.trim());
     localStorage.setItem(type + 'List', JSON.stringify(list));
     updateDropdown(type);
     input.value = "";
@@ -49,7 +54,11 @@ function saveNewLocation(type) {
 function updateDropdown(type) {
     const select = document.getElementById(type === 'pickup' ? 'pickup-address' : 'final-address');
     const list = JSON.parse(localStorage.getItem(type + 'List') || "[]");
-    select.innerHTML = list.map(addr => `<option value="${addr}">${addr}</option>`).join('');
+    if (list.length === 0) {
+        select.innerHTML = '<option value="">Sin direcciones guardadas</option>';
+    } else {
+        select.innerHTML = list.map((addr, idx) => `<option value="${addr}">${idx + 1}. ${addr}</option>`).join('');
+    }
 }
 
 function addBulkAddresses() {
@@ -85,15 +94,38 @@ function scanLiveFrame() {
 const API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjEzZWNmZjAwZWNiYTQ4YjE5MTQ3MGZhZTFhZGMyY2E5IiwiaCI6Im11cm11cjY0In0='; 
 
 async function geocodeAddress(address) {
-    const response = await fetch(`https://api.openrouteservice.org/geocode/search?api_key=${API_KEY}&text=${encodeURIComponent(address + ', Mosquera, Colombia')}`);
-    const data = await response.json();
-    if (data.features && data.features.length > 0) return data.features[0].geometry.coordinates;
-    throw new Error(`No se encontró: ${address}`);
+    // Búsqueda más específica para Mosquera, Cundinamarca
+    const searchText = `${address}, Mosquera, Cundinamarca, Colombia`;
+    
+    try {
+        const response = await fetch(`https://api.openrouteservice.org/geocode/search?api_key=${API_KEY}&text=${encodeURIComponent(searchText)}&size=1`);
+        const data = await response.json();
+        
+        if (data.features && data.features.length > 0) {
+            const coords = data.features[0].geometry.coordinates;
+            console.log(`✓ Encontrado: ${address} -> [${coords[1].toFixed(4)}, ${coords[0].toFixed(4)}]`);
+            return coords;
+        } else {
+            // Fallback: buscar en Bogotá si no encuentra en Mosquera
+            const fallbackResponse = await fetch(`https://api.openrouteservice.org/geocode/search?api_key=${API_KEY}&text=${encodeURIComponent(address + ', Bogotá, Colombia')}&size=1`);
+            const fallbackData = await fallbackResponse.json();
+            
+            if (fallbackData.features && fallbackData.features.length > 0) {
+                console.log(`✓ Encontrado (fallback): ${address}`);
+                return fallbackData.features[0].geometry.coordinates;
+            }
+            
+            throw new Error(`No se encontró: ${address}`);
+        }
+    } catch (error) {
+        console.error(`✗ Error buscando ${address}:`, error);
+        throw error;
+    }
 }
 
 async function calculateRoute() {
     const vehicle = document.getElementById('vehicle').value;
-    const addresses = Array.from(document.querySelectorAll('.package-address')).map(i => i.value);
+    const addresses = Array.from(document.querySelectorAll('.package-address')).map(i => i.value.trim());
     const pickup = document.getElementById('pickup-address').value;
     const final = document.getElementById('final-address').value;
 
@@ -127,28 +159,18 @@ async function calculateRoute() {
         });
         
         if (!res.ok) throw new Error(`API Error: ${res.status}`);
-        
         const optData = await res.json();
 
-        // Extraer paradas y coordenadas en el orden optimizado directamente de la respuesta
         const sortedStops = [];
         const sortedCoords = [];
 
         optData.routes[0].steps.forEach(s => {
-            if (s.type === 'start') {
-                sortedStops.push(pickup);
-                sortedCoords.push(s.location); // [lng, lat]
-            } else if (s.type === 'end') {
-                sortedStops.push(final);
-                sortedCoords.push(s.location); // [lng, lat]
-            } else if (s.type === 'job') {
-                sortedStops.push(addresses[s.id - 1]);
-                sortedCoords.push(s.location); // [lng, lat]
-            }
+            if (s.type === 'start') { sortedStops.push(pickup); sortedCoords.push(s.location); }
+            else if (s.type === 'end') { sortedStops.push(final); sortedCoords.push(s.location); }
+            else if (s.type === 'job') { sortedStops.push(addresses[s.id - 1]); sortedCoords.push(s.location); }
         });
         
         displayRoute(sortedStops, sortedCoords);
-        
         btn.innerHTML = originalText;
         btn.disabled = false;
     } catch(e) { 
@@ -163,21 +185,17 @@ function displayRoute(stops, coords) {
     container.innerHTML = ""; 
     document.getElementById('route-results').style.display = "block";
     
-    // Crear lista de paradas (omitimos la primera que es el punto de partida)
     for (let i = 1; i < stops.length; i++) {
         container.innerHTML += `<div class="stop-card"><span><strong>${i}.</strong> ${stops[i]}</span><button onclick="navigateTo('${stops[i]}')">Ir</button></div>`;
     }
     
-    // Mostrar mapa con un pequeño retraso para que el contenedor renderice bien
-    setTimeout(() => {
-        displayMap(coords, stops);
-    }, 150);
+    setTimeout(() => { displayMap(coords, stops); }, 150);
 }
 
 function displayMap(coords, stops) {
-    // Inicializar mapa si no existe
+    // Inicializar mapa centrado en Mosquera, Cundinamarca
     if (!routeMap) {
-        routeMap = L.map('route-map').setView([4.6097, -74.0817], 13);
+        routeMap = L.map('route-map').setView([4.6269, -74.2317], 14);
         
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap',
@@ -185,14 +203,11 @@ function displayMap(coords, stops) {
         }).addTo(routeMap);
     }
     
-    // Limpiar capas anteriores
     if (routeLayer) routeMap.removeLayer(routeLayer);
     if (markersLayer) routeMap.removeLayer(markersLayer);
     
-    // Crear capa de marcadores
     markersLayer = L.layerGroup();
     
-    // Agregar marcadores
     coords.forEach((coord, index) => {
         const lng = coord[0];
         const lat = coord[1];
@@ -215,8 +230,7 @@ function displayMap(coords, stops) {
             iconAnchor: [16, 16]
         });
         
-        const markerType = index === 0 ? ' Inicio' : index === coords.length - 1 ? '🏁 Destino' : ' Parada ' + index;
-        
+        const markerType = index === 0 ? '🏠 Inicio' : index === coords.length - 1 ? '🏁 Destino' : '📦 Parada ' + index;
         const marker = L.marker([lat, lng], { icon: icon })
             .bindPopup(`<strong>${markerType}</strong><br>${stops[index]}`);
         
@@ -225,8 +239,7 @@ function displayMap(coords, stops) {
     
     markersLayer.addTo(routeMap);
     
-    // Crear línea de ruta
-    const routeCoords = coords.map(c => [c[1], c[0]]); // Leaflet usa [lat, lng]
+    const routeCoords = coords.map(c => [c[1], c[0]]);
     routeLayer = L.polyline(routeCoords, {
         color: '#6366f1',
         weight: 5,
@@ -234,10 +247,8 @@ function displayMap(coords, stops) {
         smoothFactor: 1
     }).addTo(routeMap);
     
-    // Ajustar vista del mapa
     routeMap.fitBounds(routeLayer.getBounds(), { padding: [50, 50], maxZoom: 16 });
     
-    // CRÍTICO: Forzar a Leaflet a recalcular el tamaño del contenedor
     setTimeout(() => {
         routeMap.invalidateSize();
     }, 100);
