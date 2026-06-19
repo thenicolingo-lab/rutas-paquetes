@@ -177,6 +177,7 @@ function displayRoute(orderedStops) {
 }
 
 function navigateTo(address) {
-    const url = `http://googleusercontent.com/maps.google.com/maps?daddr=${encodeURIComponent(address + ', Mosquera, Colombia')}`;
+    // Universal Google Maps link that works seamlessly on phones, computers, Android, and iPhone
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address + ', Mosquera, Colombia')}`;
     window.open(url, '_blank');
 }
