@@ -20,7 +20,14 @@
     </style>
 </head>
 <body>
+<section id="login-section">
+    <label>Llave de acceso (Solo mamá):</label>
+    <input type="password" id="secret-key" placeholder="Ingresa la clave">
+    <button onclick="checkAccess()">Desbloquear</button>
+</section>
 
+<div id="main-app" style="display:none;">
+    </div>
     <section>
         <label>Tipo de vehículo:</label>
         <select id="vehicle">
