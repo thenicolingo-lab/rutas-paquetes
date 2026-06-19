@@ -1,198 +1,131 @@
-// Iniciar la cámara tan pronto se abra la app
 window.onload = async function() {
+    const savedCode = localStorage.getItem('userCode');
+    const title = document.getElementById('gate-title');
+    const btn = document.getElementById('gate-btn');
+    if (savedCode) { title.innerText = "Ingresa tu código"; btn.innerText = "Desbloquear"; }
+
     const video = document.getElementById('camera-stream');
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'environment' } 
-        });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
         video.srcObject = stream;
-    } catch (err) {
-        console.error("Error al acceder a la cámara: ", err);
-    }
+    } catch (err) { console.error("Cámara no disponible"); }
 }
-const SECRET_PASSWORD = "TU_CLAVE_SECRETA"; // Pon aquí la clave que ella quiera
 
-function checkAccess() {
-    const input = document.getElementById('secret-key').value;
-    if (input === SECRET_PASSWORD) {
-        document.getElementById('login-section').style.display = 'none';
-        document.getElementById('main-app').style.display = 'block';
-        loadSavedData(); // Función que crearemos para recuperar los datos
+function handleGate() {
+    const input = document.getElementById('gate-input').value;
+    const savedCode = localStorage.getItem('userCode');
+    if (!savedCode) {
+        if (input.length === 4) { localStorage.setItem('userCode', input); unlockApp(); }
+        else alert("El código debe tener 4 dígitos.");
     } else {
-        alert("Clave incorrecta.");
+        if (input === savedCode) unlockApp();
+        else alert("Código incorrecto.");
     }
 }
 
-function loadSavedData() {
-    // Recuperar direcciones solo si la clave es correcta
-    document.getElementById('pickup-address').value = localStorage.getItem('savedPickup') || "";
-    document.getElementById('final-address').value = localStorage.getItem('savedFinal') || "";
-}
-// Opción A: Entrada Manual
-function addManualAddress() {
-    const input = document.getElementById('manual-address');
-    if (input.value.trim() !== "") {
-        addStopToList(input.value.trim());
-        input.value = "";
-    }
+function unlockApp() {
+    document.getElementById('gate-section').style.display = 'none';
+    document.getElementById('main-app').style.display = 'block';
+    updateDropdown('pickup');
+    updateDropdown('final');
 }
 
-// Opción nueva: Agregar lista masiva (para el copy-paste de Gemini)
+function saveNewLocation(type) {
+    const input = document.getElementById(type === 'pickup' ? 'new-pickup' : 'new-final');
+    if (!input.value) return;
+    let list = JSON.parse(localStorage.getItem(type + 'List') || "[]");
+    list.push(input.value);
+    localStorage.setItem(type + 'List', JSON.stringify(list));
+    updateDropdown(type);
+    input.value = "";
+}
+
+function updateDropdown(type) {
+    const select = document.getElementById(type === 'pickup' ? 'pickup-address' : 'final-address');
+    const list = JSON.parse(localStorage.getItem(type + 'List') || "[]");
+    select.innerHTML = list.map(addr => `<option value="${addr}">${addr}</option>`).join('');
+}
+
 function addBulkAddresses() {
     const textarea = document.getElementById('bulk-addresses');
-    const bulkText = textarea.value;
-    if (bulkText.trim() === "") return;
-    const addresses = bulkText.split(';');
-    addresses.forEach(addr => {
-        if (addr.trim() !== "") {
-            addStopToList(addr.trim());
-        }
-    });
+    const addresses = textarea.value.split(';');
+    addresses.forEach(addr => { if (addr.trim() !== "") addStopToList(addr.trim()); });
     textarea.value = "";
 }
 
-// Opción B: Escáner en vivo
-function scanLiveFrame() {
-    const video = document.getElementById('camera-stream');
-    const scannedList = document.getElementById('scanned-list');
-    
-    const loadingMsg = document.createElement('p');
-    loadingMsg.innerText = "Leyendo imagen...";
-    scannedList.appendChild(loadingMsg);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-    
-    const imageData = canvas.toDataURL('image/png');
-
-    Tesseract.recognize(imageData, 'spa')
-        .then(({ data: { text } }) => {
-            loadingMsg.remove();
-            if(text.trim().length > 2) {
-                addStopToList(text.trim());
-            } else {
-                alert("No se detectó texto claro. Intenta acercar la cámara o usa la entrada manual.");
-            }
-        });
+function addManualAddress() {
+    const input = document.getElementById('manual-address');
+    if (input.value.trim() !== "") { addStopToList(input.value.trim()); input.value = ""; }
 }
 
-function addStopToList(addressText) {
-    const scannedList = document.getElementById('scanned-list');
+function addStopToList(text) {
     const div = document.createElement('div');
     div.className = 'stop-card';
-    div.innerHTML = `
-        <input type="text" value="${addressText}" class="package-address">
-        <button class="btn-red" onclick="this.parentElement.remove()">X</button>
-    `;
-    scannedList.appendChild(div);
+    div.innerHTML = `<input type="text" value="${text}" class="package-address"><button class="btn-red" onclick="this.parentElement.remove()">X</button>`;
+    document.getElementById('scanned-list').appendChild(div);
+}
+
+function scanLiveFrame() {
+    const video = document.getElementById('camera-stream');
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    Tesseract.recognize(canvas.toDataURL('image/png'), 'spa').then(({ data: { text } }) => {
+        if(text.trim().length > 2) addStopToList(text.trim());
+        else alert("No se detectó texto.");
+    });
 }
 
 const API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjEzZWNmZjAwZWNiYTQ4YjE5MTQ3MGZhZTFhZGMyY2E5IiwiaCI6Im11cm11cjY0In0='; 
 
 async function geocodeAddress(address) {
-    const fullAddress = `${address}, Mosquera, Colombia`;
-    const response = await fetch(`https://api.openrouteservice.org/geocode/search?api_key=${API_KEY}&text=${encodeURIComponent(fullAddress)}`);
-    if (!response.ok) throw new Error(`Fallo de conexión al buscar: ${address}`);
+    const response = await fetch(`https://api.openrouteservice.org/geocode/search?api_key=${API_KEY}&text=${encodeURIComponent(address + ', Mosquera, Colombia')}`);
     const data = await response.json();
-    if (data.features && data.features.length > 0) {
-        return data.features[0].geometry.coordinates;
-    }
-    throw new Error(`No pudimos encontrar: ${address}. Revisa la dirección.`);
+    if (data.features && data.features.length > 0) return data.features[0].geometry.coordinates;
+    throw new Error(`No se encontró: ${address}`);
 }
 
 async function calculateRoute() {
-    const vehicleProfile = document.getElementById('vehicle').value; 
-    const addresses = Array.from(document.querySelectorAll('.package-address')).map(input => input.value);
+    const vehicle = document.getElementById('vehicle').value;
+    const addresses = Array.from(document.querySelectorAll('.package-address')).map(i => i.value);
     const pickup = document.getElementById('pickup-address').value;
-    const finalStop = document.getElementById('final-address').value;
+    const final = document.getElementById('final-address').value;
 
-    if(!pickup || addresses.length === 0 || !finalStop) {
-        alert("Faltan datos. Asegúrate de tener punto de partida, al menos un paquete, y destino final.");
-        return;
-    }
+    if(!pickup || addresses.length === 0 || !final) { alert("Faltan datos."); return; }
 
     try {
         const btn = document.querySelector('.btn-green');
-        btn.innerText = "Calculando ruta óptima...";
-        btn.disabled = true;
+        btn.innerText = "Calculando..."; btn.disabled = true;
 
-        const allTextStops = [pickup, ...addresses, finalStop];
-        const coordinates = [];
-        for (const text of allTextStops) {
-            const coords = await geocodeAddress(text);
-            coordinates.push(coords);
-        }
+        const coords = [];
+        for (const text of [pickup, ...addresses, final]) coords.push(await geocodeAddress(text));
 
         const body = {
-            jobs: addresses.map((addr, i) => ({
-                id: i + 1,
-                location: coordinates[i + 1] 
-            })),
-            vehicles: [{
-                id: 1,
-                profile: vehicleProfile, 
-                start: coordinates[0], 
-                end: coordinates[coordinates.length - 1] 
-            }]
+            jobs: addresses.map((addr, i) => ({ id: i + 1, location: coords[i + 1] })),
+            vehicles: [{ id: 1, profile: vehicle, start: coords[0], end: coords[coords.length - 1] }]
         };
 
-        const optResponse = await fetch('https://api.openrouteservice.org/optimization', {
+        const res = await fetch('https://api.openrouteservice.org/optimization', {
             method: 'POST',
-            headers: {
-                'Authorization': API_KEY,
-                'Content-Type': 'application/json; charset=utf-8'
-            },
+            headers: { 'Authorization': API_KEY, 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
+        const optData = await res.json();
 
-        if (!optResponse.ok) throw new Error("Fallo de conexión al calcular la ruta.");
-        const optData = await optResponse.json();
-
-        if(optData.code === 0 || optData.routes) {
-            const sortedSteps = optData.routes[0].steps;
-            const finalOrderedText = [];
-            
-            sortedSteps.forEach(step => {
-                if (step.type === 'start') finalOrderedText.push(pickup);
-                else if (step.type === 'end') finalOrderedText.push(finalStop);
-                else if (step.type === 'job') finalOrderedText.push(addresses[step.id - 1]);
-            });
-
-            displayRoute(finalOrderedText);
-        } else {
-            alert("Error al ordenar la ruta.");
-        }
-
-        btn.innerText = "Optimizar Ruta";
-        btn.disabled = false;
-    } catch (error) {
-        alert(error.message);
-        const btn = document.querySelector('.btn-green');
-        btn.innerText = "Optimizar Ruta";
-        btn.disabled = false;
-    }
+        const sorted = optData.routes[0].steps.map(s => s.type === 'job' ? addresses[s.id - 1] : (s.type === 'start' ? pickup : final));
+        displayRoute(sorted);
+        btn.innerText = "Optimizar Ruta"; btn.disabled = false;
+    } catch(e) { alert(e.message); location.reload(); }
 }
 
-function displayRoute(orderedStops) {
+function displayRoute(stops) {
     const container = document.getElementById('optimized-stops');
-    container.innerHTML = "";
-    document.getElementById('route-results').style.display = "block";
-    for (let i = 0; i < orderedStops.length - 1; i++) {
-        const nextStop = orderedStops[i+1];
-        const div = document.createElement('div');
-        div.className = 'stop-card';
-        div.innerHTML = `
-            <span><strong>${i+1}.</strong> ${nextStop}</span>
-            <button class="btn-green" style="width: auto; padding: 8px 15px;" onclick="navigateTo('${nextStop}')">Ir en Maps</button>
-        `;
-        container.appendChild(div);
+    container.innerHTML = ""; document.getElementById('route-results').style.display = "block";
+    for (let i = 0; i < stops.length - 1; i++) {
+        container.innerHTML += `<div class="stop-card"><span><strong>${i+1}.</strong> ${stops[i+1]}</span><button onclick="navigateTo('${stops[i+1]}')">Ir</button></div>`;
     }
 }
 
 function navigateTo(address) {
-    // CORRECCIÓN: Link estándar de Google Maps para navegación
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address + ', Mosquera, Colombia')}&travelmode=driving`;
-    window.open(url, '_blank');
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address + ', Mosquera, Colombia')}&travelmode=driving`, '_blank');
 }
