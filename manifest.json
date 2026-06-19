@@ -1,16 +1,21 @@
 {
-  "short_name": "MomRouter",
-  "name": "Mom's Delivery Router",
+  "short_name": "MayitaEntregas",
+  "name": "MayitaEntregas - Optimizador de Rutas",
   "icons": [
     {
       "src": "icon.png",
       "type": "image/png",
       "sizes": "192x192"
+    },
+    {
+      "src": "icon.png",
+      "type": "image/png",
+      "sizes": "512x512"
     }
   ],
   "start_url": "/index.html",
-  "background_color": "#f9f9f9",
-  "theme_color": "#007bff",
+  "background_color": "#FF6B35",
+  "theme_color": "#FF6B35",
   "display": "standalone",
   "orientation": "portrait"
 }
