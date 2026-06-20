@@ -6,14 +6,6 @@ window.onload = async function() {
         document.getElementById('gate-btn').innerText = "Desbloquear";
     }
 
-    const video = document.getElementById('camera-stream');
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        video.srcObject = stream;
-    } catch (err) { 
-        console.error("Cámara no disponible"); 
-    }
-
     // Add stagger animation to sections
     const sections = document.querySelectorAll('section');
     sections.forEach((section, index) => {
@@ -116,33 +108,6 @@ function addStopToList(text) {
         <button class="btn-red" onclick="this.parentElement.remove()">✕ Eliminar</button>
     `;
     document.getElementById('scanned-list').appendChild(div);
-}
-
-function scanLiveFrame() {
-    const video = document.getElementById('camera-stream');
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth; 
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-    
-    const btn = event.target;
-    const originalText = btn.innerText;
-    btn.innerText = '⏳ Procesando...';
-    btn.disabled = true;
-    
-    Tesseract.recognize(canvas.toDataURL('image/png'), 'spa').then(({ data: { text } }) => {
-        if(text.trim().length > 2) {
-            addStopToList(text.trim());
-            showSuccessMessage('✅ Texto detectado');
-        }
-        else alert("No se detectó texto claro. Intenta de nuevo.");
-        btn.innerText = originalText;
-        btn.disabled = false;
-    }).catch(err => {
-        alert("Error al escanear: " + err.message);
-        btn.innerText = originalText;
-        btn.disabled = false;
-    });
 }
 
 const API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjEzZWNmZjAwZWNiYTQ4YjE5MTQ3MGZhZTFhZGMyY2E5IiwiaCI6Im11cm11cjY0In0='; 
