@@ -113,7 +113,8 @@ function addStopToList(text) {
 const API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjEzZWNmZjAwZWNiYTQ4YjE5MTQ3MGZhZTFhZGMyY2E5IiwiaCI6Im11cm11cjY0In0='; 
 
 async function geocodeAddress(address) {
-    const response = await fetch(`https://api.openrouteservice.org/geocode/search?api_key=${API_KEY}&text=${encodeURIComponent(address + ', Mosquera, Colombia')}`);
+    // Cambiamos ', Mosquera, Colombia' a solo ', Colombia'
+    const response = await fetch(`https://api.openrouteservice.org/geocode/search?api_key=${API_KEY}&text=${encodeURIComponent(address + ', Colombia')}`);
     const data = await response.json();
     if (data.features && data.features.length > 0) return data.features[0].geometry.coordinates;
     throw new Error(`No se encontró: ${address}`);
@@ -160,8 +161,11 @@ async function calculateRoute() {
         // Scroll to results
         document.getElementById('route-results').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch(e) { 
-        alert("Error: " + e.message); 
-        location.reload(); 
+        // Mostrar el error pero SIN recargar la página
+        alert("Aviso: " + e.message + "\n\nRevisa que las direcciones no sean solo 'Calle 11', agrega un número o intersección."); 
+        const btn = document.querySelector('.btn-green');
+        btn.innerText = "Optimizar Ruta"; 
+        btn.disabled = false; 
     }
 }
 
@@ -183,6 +187,7 @@ function displayRoute(stops) {
 }
 
 function navigateTo(address) {
-    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address + ', Mosquera, Colombia')}`;
+    // Usamos el enlace oficial de Google Maps para crear rutas y quitamos Mosquera
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address + ', Colombia')}`;
     window.open(url, '_blank');
 }
